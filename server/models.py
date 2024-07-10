@@ -3,13 +3,12 @@ from sqlalchemy import MetaData
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy_serializer import SerializerMixin
 
-
+# Setting a naming convention for database constraints
 metadata = MetaData(naming_convention={
     "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
 })
 
 db = SQLAlchemy(metadata=metadata)
-
 
 class Customer(db.Model, SerializerMixin):
     __tablename__ = 'customers'
@@ -17,22 +16,10 @@ class Customer(db.Model, SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
 
-    # Relationship with Review
-    reviews = db.relationship('Review', back_populates="customer", cascade='all, delete-orphan')
-
-    # Association proxy to items through reviews
+    reviews = db.relationship('Review', back_populates='customer')
     items = association_proxy('reviews', 'item')
-
-    # Serialization method
-    def serialize(self):
-        return {
-            'id': self.id,
-            'name': self.name,
-            'items': [item.serialize() for item in self.items]  # Adjust serialization as needed
-        }
-
-    # Serialization rules to avoid recursion
-    serialize_rules = ('-reviews.customer',)
+    
+    serialize_rules = ('-reviews.customer', )
 
     def __repr__(self):
         return f'<Customer {self.id}, {self.name}>'
@@ -44,48 +31,25 @@ class Item(db.Model, SerializerMixin):
     name = db.Column(db.String)
     price = db.Column(db.Float)
 
-    # Relationship with Review
-    reviews = db.relationship('Review', back_populates="item", cascade='all, delete-orphan')
+    reviews = db.relationship('Review', back_populates='item')
 
-    # Serialization method
-    def serialize(self):
-        return {
-            'id': self.id,
-            'name': self.name,
-            'price': self.price,
-            # Optionally include related reviews if needed
-            # 'reviews': [review.serialize() for review in self.reviews]
-        }
-
-    # Serialization rules to avoid recursion
-    serialize_rules = ('-reviews.item',)
+    serialize_rules = ('-reviews.item', )
 
     def __repr__(self):
         return f'<Item {self.id}, {self.name}, {self.price}>'
 
 class Review(db.Model, SerializerMixin):
-    __tablename__= 'reviews'
+    __tablename__ = 'reviews'
 
     id = db.Column(db.Integer, primary_key=True)
     comment = db.Column(db.String)
     customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'))
     item_id = db.Column(db.Integer, db.ForeignKey('items.id'))
 
-    # Relationships with Customer and Item
-    customer = db.relationship('Customer', back_populates="reviews")
+    customer = db.relationship('Customer', back_populates='reviews')
     item = db.relationship('Item', back_populates='reviews')
 
-    # Serialization method
-    def serialize(self):
-        return {
-            'id': self.id,
-            'comment': self.comment,
-            'customer': self.customer.serialize() if self.customer else None,
-            'item': self.item.serialize() if self.item else None,
-        }
-
-    # Optionally, include only necessary fields to avoid recursion
-    serialize_rules = ('-customer.reviews', '-item.reviews')
+    serialize_rules = ('-customer.reviews', '-item.reviews', )
 
     def __repr__(self):
         return f'<Review {self.id}, {self.comment}>'
